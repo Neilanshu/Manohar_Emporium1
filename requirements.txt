@@ -1,7 +1,8 @@
 pywhatkit
 fastapi
 datetime
-SQLAlchemy==2.0.30
+tortoise-orm 
+tortoise-orm[fastapi]
 time
 uvicorn
 pydantic
