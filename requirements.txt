@@ -2,7 +2,6 @@ pywhatkit
 fastapi
 datetime
 tortoise-orm 
-tortoise-orm[fastapi]
 time
 uvicorn
 pydantic
