@@ -1,7 +1,7 @@
 pywhatkit
 fastapi
 datetime
-sqlalchemy
+SQLAlchemy
 time
 uvicorn
 pydantic
