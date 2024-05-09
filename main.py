@@ -1,76 +1,107 @@
-import streamlit as st
-from sqlalchemy import create_engine, Column, Integer, String, Enum
+from fastapi import FastAPI, HTTPException, Request, Form
+from jsonschema import ValidationError
+from pydantic import BaseModel
+from sqlalchemy import create_engine, Column, Integer, String, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from twilio.rest import Client
+import pywhatkit
+import time
+from datetime import datetime
+import pandas as pd
+from datetime import datetime, timedelta
+import time
 
-# Database setup
-DATABASE_URL = "sqlite:///app.db"
-engine = create_engine(DATABASE_URL)
+# Create FastAPI instance
+app = FastAPI()
+
+# Database configuration
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# Define User model
 class User(Base):
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    mobile_number = Column(String)
-    whatsapp_number = Column(String)
-    email = Column(String)
-    locality = Column(String)
-    classification = Column(Enum('A', 'B', 'C'))
+    name = Column(String, index=True)
+    mobile_number = Column(String, index=True)
+    whatsapp_number = Column(String, index=True)
+    email = Column(String, index=True)
+    locality = Column(String, index=True)
+    classification = Column(String, index=True)
 
+# Create database tables
 Base.metadata.create_all(bind=engine)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Twilio setup
-account_sid = 'your_account_sid'
-auth_token = 'your_auth_token'
-twilio_phone_number = 'your_twilio_phone_number'
-client = Client(account_sid, auth_token)
+# Pydantic model for request body
+class UserData(BaseModel):
+    name: str
+    mobile_number: str
+    whatsapp_number: str
+    email: str
+    locality: str
+    classification: str = None
 
-# Streamlit app
-def main():
-    st.title("User Data Collection App")
-    
-    # Form to collect user data
-    st.subheader("User Information")
-    name = st.text_input("Name")
-    mobile_number = st.text_input("Mobile Number")
-    whatsapp_number = st.text_input("WhatsApp Number")
-    email = st.text_input("Email")
-    locality = st.text_input("Locality")
-    
-    if st.button("Submit"):
-        # Store user data in the database
-        db = SessionLocal()
-        new_user = User(name=name, mobile_number=mobile_number, whatsapp_number=whatsapp_number, email=email, locality=locality)
-        db.add(new_user)
-        db.commit()
-        st.success("User data submitted successfully!")
-        
-    # Owner classification
-    st.subheader("Owner Classification")
-    user_list = db.query(User).all()
-    for user in user_list:
-        classification = st.selectbox(f"Classification for {user.name}", ['A', 'B', 'C'])
-        user.classification = classification
-    db.commit()
-    st.success("User classification updated successfully!")
-    
-    # WhatsApp message sending functionality
-    if st.button("Send WhatsApp Message"):
-        for user in user_list:
-            if user.whatsapp_number:
-                send_whatsapp_message(user.whatsapp_number, "Your Shop Card PDF: <PDF_Link_Here>")
-        st.success("WhatsApp messages sent successfully!")
+# Function to send WhatsApp message after 1 minute
+def send_whatsapp_message(phone_number, message):
+    current_time = datetime.now()
+    send_time = current_time + timedelta(minutes=2)
+    hour = send_time.hour
+    minute = send_time.minute
+    # time.sleep(60)
+    pywhatkit.sendwhatmsg(phone_number, message, hour, minute)
 
-def send_whatsapp_message(to_number, message):
-    message = client.messages.create(
-        from_='whatsapp:' + twilio_phone_number,
-        body=message,
-        to='whatsapp:' + to_number
+# Endpoint to submit user data
+@app.post("/submit_user_data/")
+async def submit_user_data(
+    name: str = Form(...),
+    mobile_number: str = Form(...),
+    whatsapp_number: str = Form(...),
+    email: str = Form(...),
+    locality: str = Form(...),
+):
+    db = SessionLocal()
+    try:
+        user_data = UserData(name=name, mobile_number=mobile_number, whatsapp_number=whatsapp_number, email=email, locality=locality)
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    data = user_data.dict()
+    sql_query = text(
+        """
+        INSERT INTO users (name, mobile_number, whatsapp_number, email, locality, classification) 
+        VALUES (:name, :mobile_number, :whatsapp_number, :email, :locality, :classification)
+    """
     )
+    db.execute(sql_query, data)
+    db.commit()
 
-if __name__ == "__main__":
-    main()
+    return {"message": "User data submitted successfully!"}
+
+# Endpoint to classify users
+@app.post("/classify_users/")
+async def classify_users():
+    db = SessionLocal()
+    classification_options = ['A', 'B', 'C']
+    users = db.query(User).all()
+    for index, user in enumerate(users):
+        user.classification = classification_options[index]
+    db.commit()
+    return {"message": "User classification updated successfully!"}
+
+# Endpoint to send WhatsApp messages
+@app.post("/send_whatsapp_message/")
+async def send_whatsapp_message_endpoint():
+    db = SessionLocal()
+    users = db.query(User).filter(User.whatsapp_number != None).all()
+    for user in users:
+        message = f"Hello {user.name}, thank you for being our customer! We have classified you as Class {user.classification}."
+        send_whatsapp_message(user.whatsapp_number, message)
+    return {"message": "WhatsApp messages sent successfully!"}
+
+# Home page
+@app.get("/")
+async def home():
+    return {"message": "Welcome to the homepage!"}
