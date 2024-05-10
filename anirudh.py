@@ -3,7 +3,8 @@ import pandas as pd
 import pywhatkit
 import requests
 ##pywhatkit.start_server()
-
+from datetime import datetime
+from datetime import datetime, timedelta
 # Data storage
 user_data = pd.DataFrame(columns=["Name", "Mobile Number", "WhatsApp Number", "Email", "Locality", "Classification"])
 
@@ -45,34 +46,13 @@ def main():
 
 
 
-def send_whatsapp_message(to_number, message):
-    # Dummy implementation to simulate sending WhatsApp message
-    # Replace this with your actual implementation
-
-    # Format the message
-    formatted_message = f"Sending message to {to_number}: {message}"
-
-    # Print the formatted message
-    print(formatted_message)
-    
-# Send a WhatsApp Message to a Contact at 1:30 PM
-    pywhatkit.sendwhatmsg("+918928304380", "Hi", 22, 29)    
-    # Simulate sending the message
-    # In a real implementation, you would use an API to send WhatsApp messages
-    # This is just a placeholder to demonstrate the function
-    # Replace the URL with the actual API endpoint for sending WhatsApp messages
-    # api_url = "https://your-whatsapp-api.com/send_message"
-    # payload = {
-    #     "to_number": to_number,
-    #     "message": message
-    # }
-    # response = requests.post(api_url, json=payload)
-
-    # # Check if the message was sent successfully
-    # if response.status_code == 200:
-    #     print("Message sent successfully!")
-    # else:
-    #     print("Failed to send message. Please check your implementation.")
+def send_whatsapp_message(phone_number, message):
+    current_time = datetime.now()
+    send_time = current_time + timedelta(minutes=2)
+    hour = send_time.hour
+    minute = send_time.minute
+    # time.sleep(60)
+    pywhatkit.sendwhatmsg(phone_number, message, hour, minute)
 
 if __name__ == "__main__":
     main()
