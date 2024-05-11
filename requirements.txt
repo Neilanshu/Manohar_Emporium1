@@ -1,7 +1,6 @@
 pywhatkit
 fastapi
 datetime
-tortoise-orm 
-time
+SQLAlchemy
 uvicorn
 pydantic
